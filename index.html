@@ -1,0 +1,1629 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<!-- Added to the Home Screen, the game opens as a standalone, browser-free
+     app. The play gate counts that as fullscreen (iPhone has no other way). -->
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<title>3D Character Controller - Main Menu</title>
+
+<!-- Base page rules, loading screen and rotate overlay are shared with game.html -->
+<link rel="stylesheet" href="style/common.css" />
+
+<style>
+  [hidden] { display: none !important; }
+
+  body {
+    /* Lobby backdrop: flat sky + grass. The horizon sits at 69% so the 3D
+       character (script/lobby.js) stands on the grass. */
+    background: linear-gradient(180deg, #87ceeb 0%, #87ceeb 69%, #6fae5e 69%, #5f9f50 100%);
+    font-family: "Arial Rounded MT Bold", "Trebuchet MS", "Comic Sans MS", "Chalkboard SE", Arial, sans-serif;
+  }
+
+  /* ---------- Loading screen (game-style: green field, chase animation) ---------- */
+  #loading-screen {
+    background: #5f9f50;
+    justify-content: flex-end;
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  #loading-scene {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    display: block;
+    pointer-events: none;
+  }
+  #loading-panel {
+    position: relative;
+    z-index: 2;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 8px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    color: #fff;
+    font-family: "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif;
+    max-width: 88vw;
+    margin-bottom: 6px;
+  }
+  /* Loading text now sits UNDER the bar (see #loading-bar-info) and is
+     smaller, so the detailed bar and percentage stay the focus. */
+  .load-title {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    color: #fff;
+    text-shadow:
+      1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000,
+      1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000,
+      0 2px 0 #000;
+    animation: loadPulse 1.4s ease-in-out infinite;
+  }
+  #loading-bar-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    margin-top: 4px;
+  }
+  #loading-percent {
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    color: #b8ffb8;
+    text-shadow: 0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000;
+  }
+  @keyframes loadPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+  }
+  /* Detailed loading bar: thick black frame, dark track, glossy green
+     fill, inset highlight line on top, and 10% tick-mark lines layered
+     above the fill so progress reads clearly at a glance. */
+  #loading-bar-track {
+    position: relative;
+    width: 280px;
+    height: 16px;
+    box-sizing: border-box;
+    background: rgba(0, 0, 0, 0.72);
+    border: 3px solid #000;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 0;
+    box-shadow:
+      inset 0 3px 5px rgba(0, 0, 0, 0.65),
+      0 2px 0 rgba(0, 0, 0, 0.55);
+  }
+  /* Segment tick lines (10% increments), drawn over everything. */
+  #loading-bar-track::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    border-radius: inherit;
+    background-image: repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(10% - 1px),
+      rgba(255, 255, 255, 0.18) calc(10% - 1px),
+      rgba(255, 255, 255, 0.18) 10%
+    );
+  }
+  #loading-bar-fill {
+    position: relative;
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(180deg, #a8ffa8 0%, #5fd35f 45%, #2e9e3e 100%);
+    border-radius: 999px;
+    box-shadow: 0 0 6px rgba(120, 255, 140, 0.55);
+  }
+  /* Top highlight line for a glossy tube look. */
+  #loading-bar-fill::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    top: 2px;
+    height: 30%;
+    border-radius: 999px;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.55) 0%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    pointer-events: none;
+  }
+  #loading-error {
+    color: #ffb0b0;
+    font-size: 12px;
+    max-width: 90vw;
+    text-align: center;
+    white-space: pre-line;
+    line-height: 1.35;
+  }
+  #retry-btn {
+    margin-top: 4px; padding: 6px 16px;
+    border: 2px solid #fff; border-radius: 8px;
+    background: #3fbf4f; color: #fff;
+    font: inherit; font-size: 12px; font-weight: 800;
+    letter-spacing: 0.06em; cursor: pointer;
+    box-shadow: 0 3px 0 #000;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  #retry-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #000; }
+
+  /* ---------- Black-out transition (loading -> main menu) ---------- */
+  #black-transition {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+  }
+  #black-transition.active {
+    opacity: 1;
+  }
+
+  /* ---------- Main menu shell ---------- */
+  #main-menu {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    padding: 12px; box-sizing: border-box;
+    z-index: 1;   /* above #lobby-canvas (z-index 0), below loading / rotate screens */
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity 0.35s ease, visibility 0s linear 0.35s;
+  }
+  #main-menu.ready {
+    opacity: 1; visibility: visible; pointer-events: auto;
+    transition: opacity 0.35s ease, visibility 0s;
+  }
+  body.leaving #main-menu { opacity: 0; transition: opacity 0.18s ease; }
+
+  .menu-view { display: none; flex-direction: column; align-items: center; gap: 16px; }
+  #main-menu[data-view="menu"] #view-menu { display: block; }
+  #main-menu[data-view="settings"] #view-settings { display: flex; }
+
+  /* Settings card opens over a dimmed + blurred lobby. */
+  #main-menu[data-view="settings"] {
+    background: rgba(16, 24, 48, 0.38);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+
+  /* ---------- Lobby layout (Mobile Legends / CODM style) ----------
+     The 3D character is drawn on #lobby-canvas (script/lobby.js) behind this
+     layer. Logo top-left, round gear (SETTINGS) top-right, PLAY buttons on
+     the right side. */
+  #view-menu { position: absolute; inset: 0; }
+
+  .logo {
+    position: absolute;
+    top: max(12px, env(safe-area-inset-top));
+    left: max(16px, env(safe-area-inset-left));
+    pointer-events: none;
+  }
+  .logo .title {
+    text-align: left;
+    font-size: clamp(18px, min(3.4vw, 6.5vh), 32px);
+    text-shadow:
+      2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,
+      2px 2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000,
+      0 4px 0 #000;
+    animation: none;
+  }
+  .logo .subtitle { margin: 6px 0 0; font-size: 10px; }
+
+  .lobby-actions {
+    position: absolute;
+    top: 50%;
+    right: max(5vw, env(safe-area-inset-right));
+    transform: translateY(-50%);
+    display: flex; flex-direction: column; align-items: center;
+    gap: 18px;
+  }
+  .lobby-actions .hint {
+    color: #fff; opacity: 1;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  }
+
+  .gear-btn {
+    position: absolute;
+    top: max(12px, env(safe-area-inset-top));
+    right: max(12px, env(safe-area-inset-right));
+    width: 46px; height: 46px; box-sizing: border-box; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    border: 3px solid #000; border-radius: 50%;
+    background: #ff9f1c;
+    cursor: pointer;
+    box-shadow:
+      0 4px 0 #000,
+      inset 0 -4px 0 rgba(0, 0, 0, 0.2),
+      inset 0 3px 0 rgba(255, 255, 255, 0.45);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  .gear-btn svg {
+    width: 28px; height: 28px; display: block; pointer-events: none;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @media (hover: hover) {
+    .gear-btn:hover { transform: translateY(-2px); }
+    .gear-btn:hover svg { transform: rotate(-15deg); }
+  }
+  .gear-btn:active {
+    transform: translateY(3px);
+    box-shadow:
+      0 1px 0 #000,
+      inset 0 -3px 0 rgba(0, 0, 0, 0.2),
+      inset 0 3px 0 rgba(255, 255, 255, 0.45);
+  }
+
+  /* ---------- Title ---------- */
+  .title {
+    margin: 0; text-align: center; line-height: 1.02;
+    font-size: clamp(26px, min(8vw, 14vh), 58px);
+    font-weight: 900; letter-spacing: 0.05em; color: #fff;
+    text-shadow:
+      3px 0 0 #000, -3px 0 0 #000, 0 3px 0 #000, 0 -3px 0 #000,
+      3px 3px 0 #000, -3px 3px 0 #000, 3px -3px 0 #000, -3px -3px 0 #000,
+      0 6px 0 #000;
+    animation: titleBob 2.6s ease-in-out infinite;
+  }
+  .title span { display: block; }
+  .title span + span { color: #ffd23f; }
+  @keyframes titleBob {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
+  }
+  @media (prefers-reduced-motion: reduce) { .title { animation: none; } }
+
+  .subtitle {
+    margin: -4px 0 4px;
+    font-size: 13px; font-weight: 800; letter-spacing: 0.08em;
+    color: #1d3b53; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+  .hint {
+    margin: 0; font-size: 11px; font-weight: 800; letter-spacing: 0.06em;
+    color: #1d3b53; opacity: 0.8;
+  }
+  @media (pointer: coarse) { .hint { display: none; } }
+
+  /* ---------- Toon buttons (same look as the in-game gear menu) ---------- */
+  .menu-btn {
+    width: 240px; max-width: calc(100vw - 48px); box-sizing: border-box;
+    padding: 12px 16px 14px;
+    border: 3px solid #000; border-radius: 16px;
+    color: #fff; font-family: inherit; font-size: 20px; font-weight: 900; letter-spacing: 0.08em;
+    text-shadow:
+      1.5px 0 0 #000, -1.5px 0 0 #000, 0 1.5px 0 #000, 0 -1.5px 0 #000,
+      1.5px 1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px -1.5px 0 #000,
+      0 3px 0 #000;
+    cursor: pointer;
+    box-shadow:
+      0 5px 0 #000,
+      inset 0 -5px 0 rgba(0, 0, 0, 0.2),
+      inset 0 4px 0 rgba(255, 255, 255, 0.4);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  @media (hover: hover) {
+    .menu-btn:hover { transform: translateY(-2px) scale(1.02); }
+  }
+  .menu-btn:active {
+    transform: translateY(4px);
+    box-shadow:
+      0 1px 0 #000,
+      inset 0 -3px 0 rgba(0, 0, 0, 0.2),
+      inset 0 4px 0 rgba(255, 255, 255, 0.4);
+  }
+  #btn-play { background: #3fbf4f; }
+  #btn-bot { background: #ffb21f; }
+  /* #btn-settings is the round gear button (.gear-btn), styled in the lobby block. */
+  .menu-btn:focus-visible, .back-btn:focus-visible, #retry-btn:focus-visible, .gear-btn:focus-visible {
+    outline: 3px dashed #fff; outline-offset: 3px;
+  }
+
+  /* ---------- Controls card ---------- */
+  .card {
+    width: 320px; max-width: 100%; max-height: 100%;
+    box-sizing: border-box; gap: 0; align-items: stretch;
+    background: #fff3c4;
+    border: 3px solid #000; border-radius: 16px;
+    box-shadow: 4px 5px 0 #000;
+    overflow: hidden;
+  }
+  .card-head {
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px; background: #ff9f1c; border-bottom: 3px solid #000;
+  }
+  .head-spacer { width: 26px; height: 26px; }
+  .card-title {
+    margin: 0; font-size: 15px; font-weight: 900; letter-spacing: 0.06em; color: #fff;
+    text-shadow:
+      1.5px 0 0 #000, -1.5px 0 0 #000, 0 1.5px 0 #000, 0 -1.5px 0 #000,
+      1.5px 1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px -1.5px 0 #000,
+      0 3px 0 #000;
+  }
+  .back-btn {
+    width: 26px; height: 26px; box-sizing: border-box; padding: 0;
+    border: 2px solid #000; border-radius: 50%;
+    background: #fff; color: #000;
+    font-family: inherit; font-size: 14px; font-weight: 900; line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 2px 0 #000, inset 0 2px 0 rgba(255, 255, 255, 0.35);
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  .back-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 #000; }
+  /* Improved back button (same design as the in-game settings card). */
+  .head-spacer { width: 32px; height: 32px; }
+  .back-btn {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    background: #fff;
+    box-shadow:
+      0 3px 0 #000,
+      inset 0 -3px 0 rgba(0, 0, 0, 0.15),
+      inset 0 2px 0 rgba(255, 255, 255, 0.6);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+  .back-btn svg { width: 18px; height: 18px; display: block; pointer-events: none; }
+  @media (hover: hover) {
+    .back-btn:hover { transform: translate(-1px, -1px); }
+  }
+  .back-btn:active {
+    transform: translateY(2px);
+    box-shadow:
+      0 1px 0 #000,
+      inset 0 -2px 0 rgba(0, 0, 0, 0.15),
+      inset 0 2px 0 rgba(255, 255, 255, 0.6);
+  }
+
+  .card-body {
+    flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 10px; overflow-y: auto;
+    overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y;
+    color: #000;
+  }
+  .section {
+    align-self: flex-start;
+    padding: 2px 9px;
+    background: #000; color: #fff3c4; border-radius: 999px;
+    font-size: 10px; font-weight: 900; letter-spacing: 0.08em;
+  }
+  .keys { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .keys li {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 6px 9px; background: #fff;
+    border: 2px solid #000; border-radius: 10px; box-shadow: 0 2px 0 #000;
+    font-size: 12px; line-height: 1.2;
+  }
+  .keys b { font-weight: 900; white-space: nowrap; }
+  .keys span { text-align: right; font-weight: 700; color: #7a6320; }
+
+  /* ---------- Short landscape phones ---------- */
+  @media (max-height: 480px) {
+    .menu-view { gap: 10px; }
+    .lobby-actions { gap: 12px; }
+    .gear-btn { width: 40px; height: 40px; }
+    .gear-btn svg { width: 24px; height: 24px; }
+    .menu-btn { width: 210px; padding: 8px 14px 10px; font-size: 16px; }
+    .subtitle { font-size: 11px; }
+    .card { width: 290px; }
+  }
+</style>
+</head>
+<body>
+
+<main id="main-menu" data-view="menu" aria-hidden="true">
+  <div class="menu-view" id="view-menu">
+
+    <button type="button" class="gear-btn" id="btn-settings" aria-label="Settings" title="Settings"></button>
+
+    <div class="lobby-actions">
+      <button type="button" class="menu-btn" id="btn-play">PLAY</button>
+      <button type="button" class="menu-btn" id="btn-bot">PLAY WITH BOT</button>
+      <p class="hint">Press Enter to play</p>
+    </div>
+  </div>
+
+  <div class="menu-view card" id="view-settings" role="dialog" aria-label="Settings">
+    <div class="card-head">
+      <button type="button" class="back-btn" id="btn-back" aria-label="Back to menu">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 L8 12 L15 19" fill="none" stroke="#000" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <h2 class="card-title">SETTINGS</h2>
+      <span class="head-spacer"></span>
+    </div>
+    <div class="card-body">
+      <div class="section">KEYBOARD &amp; MOUSE</div>
+      <ul class="keys">
+        <li><b>W A S D / Arrows</b><span>Move</span></li>
+        <li><b>Shift</b><span>Run</span></li>
+        <li><b>Space</b><span>Jump</span></li>
+        <li><b>Mouse</b><span>Look around</span></li>
+        <li><b>E</b><span>Pick up / Drop</span></li>
+        <li><b>C / V</b><span>Switch camera</span></li>
+      </ul>
+      <div class="section">TOUCH</div>
+      <ul class="keys">
+        <li><b>Left joystick</b><span>Move (push to the edge to run)</span></li>
+        <li><b>Right side swipe</b><span>Look around</span></li>
+        <li><b>JUMP / USE</b><span>Jump, pick up</span></li>
+        <li><b>Gear &rarr; Bird View</b><span>Switch camera</span></li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<div id="loading-screen">
+  <canvas id="loading-scene"></canvas>
+  <div id="loading-panel">
+    <div id="loading-bar-track">
+      <div id="loading-bar-fill"></div>
+    </div>
+    <div id="loading-bar-info">
+      <span id="loading-percent">0%</span>
+      <span class="load-title">LOADING.....</span>
+    </div>
+    <div id="loading-error"></div>
+    <button type="button" id="retry-btn" hidden>RETRY</button>
+  </div>
+</div>
+
+<div id="black-transition"></div>
+
+<div id="rotate-overlay">
+  <div class="icon">📱</div>
+  <div class="title" id="rotate-title">Rotate your device</div>
+  <div class="text" id="rotate-text">This game plays only in FULLSCREEN LANDSCAPE. Touch the screen and it rotates automatically.</div>
+</div>
+
+<!-- three.js, used by script/lobby.js to draw the 3D character in the lobby
+     (same version and CDN as game.html). -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import {
+  CHARACTER_PATHS, isMobileDevice, setupMobileFullscreen, setupStartGate,
+  requestFullscreenLandscape,
+} from './script/common.js';
+/* =====================================================================
+   LOADING SCREEN — BIRD-VIEW 3D CHASE
+   ---------------------------------------------------------------------
+   Matches the in-game bird-view reference screenshot: the ACTUAL 3D
+   character model (same FBX, toon shading, black outline and colours as
+   the game) running on a green field, seen from a fixed overhead bird
+   camera, while the bot chases the player.
+
+   run.fbx is loaded in parallel with the normal preload; the browser
+   caches the file, so the game itself reuses it instantly afterwards.
+
+   Everything is best-effort: if WebGL / three.js / the FBX fails, the
+   loading screen still shows (the flat green backdrop + loading panel).
+   ===================================================================== */
+async function initLoadingScene() {
+  var canvas = document.getElementById('loading-scene');
+  var screen = document.getElementById('loading-screen');
+  if (!canvas || !screen) return;
+
+  var THREE, FBXLoader, skeletonClone = null;
+  try {
+    THREE = await import('three');
+    var mod = await import('three/addons/loaders/FBXLoader.js');
+    FBXLoader = mod.FBXLoader;
+  } catch (err) {
+    console.warn('Loading scene: three.js unavailable.', err);
+    return;
+  }
+  try {
+    var skelMod = await import('three/addons/utils/SkeletonUtils.js');
+    skeletonClone = skelMod.clone;
+  } catch (err) { /* fall back to plain clone */ }
+
+  var renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+  } catch (err) {
+    console.warn('Loading scene: WebGL unavailable.', err);
+    return;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x5f9f50);
+  scene.fog = new THREE.Fog(0x5f9f50, 40, 90);
+
+  var camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
+
+  /* Same light rig as the game. */
+  scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+  scene.add(new THREE.HemisphereLight(0xbfd9ff, 0x4a6b3a, 0.85));
+  var sun = new THREE.DirectionalLight(0xffffff, 2.0);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 40;
+  sun.shadow.camera.left = -12;
+  sun.shadow.camera.right = 12;
+  sun.shadow.camera.top = 12;
+  sun.shadow.camera.bottom = -12;
+  scene.add(sun);
+  scene.add(sun.target);
+
+  /* Green ground (toon, same colour as game.html). */
+  var ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(200, 200),
+    new THREE.MeshToonMaterial({ color: 0x5f9f50 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  /* ---- Toon helpers (match lobby.js / game.html) ------------------ */
+  function makeToonGradientMap(steps) {
+    var n = Math.max(2, Math.floor(steps));
+    var data = new Uint8Array(n);
+    for (var i = 0; i < n; i++) data[i] = Math.round((i / (n - 1)) * 255);
+    var tex = new THREE.DataTexture(data, n, 1, THREE.RedFormat);
+    tex.minFilter = THREE.NearestFilter;
+    tex.magFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    tex.needsUpdate = true;
+    return tex;
+  }
+  var GRADIENT = makeToonGradientMap(3);
+
+  function createOutlineMaterial(thickness) {
+    var mat = new THREE.MeshBasicMaterial({
+      color: 0x000000, side: THREE.BackSide, toneMapped: false,
+    });
+    mat.onBeforeCompile = function (shader) {
+      shader.uniforms.uOutlineThickness = { value: thickness };
+      shader.vertexShader = 'uniform float uOutlineThickness;\n' + shader.vertexShader;
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <skinning_vertex>',
+        [
+          '#include <skinning_vertex>',
+          '#ifdef USE_SKINNING',
+          '  transformed += normalize( objectNormal ) * uOutlineThickness;',
+          '#else',
+          '  transformed += normalize( normal ) * uOutlineThickness;',
+          '#endif',
+        ].join('\n')
+      );
+    };
+    mat.customProgramCacheKey = function () { return 'loading-toon-outline'; };
+    return mat;
+  }
+
+  function normalizePartName(s) {
+    return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
+  var COLOR_PARTS = [
+    { key: 'slippers', words: ['slipper', 'slip', 'shoe', 'sandal', 'boot'] },
+    { key: 'shorts',   words: ['short', 'pant', 'trouser', 'jean'] },
+    { key: 'shirt',    words: ['shirt', 'tshirt', 'top', 'jacket', 'hoodie'] },
+    { key: 'hair',     words: ['hair', 'beard', 'brow'] },
+    { key: 'body',     words: ['body', 'skin', 'head', 'arm', 'leg', 'hand', 'face'] },
+  ];
+  function detectPart(mesh, material) {
+    var cands = [
+      normalizePartName(mesh.name),
+      normalizePartName(material && material.name),
+      normalizePartName(mesh.parent && mesh.parent.name),
+    ].filter(Boolean);
+    for (var i = 0; i < COLOR_PARTS.length; i++) {
+      for (var j = 0; j < COLOR_PARTS[i].words.length; j++) {
+        var w = COLOR_PARTS[i].words[j];
+        for (var k = 0; k < cands.length; k++) {
+          if (cands[k].indexOf(w) >= 0) return COLOR_PARTS[i].key;
+        }
+      }
+    }
+    return null;
+  }
+  function applyColors(model, colors) {
+    model.traverse(function (obj) {
+      if (!obj.isMesh && !obj.isSkinnedMesh) return;
+      obj.visible = true;
+      obj.castShadow = true;
+      obj.receiveShadow = false;
+      obj.frustumCulled = false;
+      var isArray = Array.isArray(obj.material);
+      var mats = isArray ? obj.material : [obj.material];
+      var out = mats.map(function (mat) {
+        if (!mat) return mat;
+        var part = detectPart(obj, mat);
+        var hex = part ? colors[part] : (mat.color ? mat.color.getHex() : 0xffffff);
+        var toon = new THREE.MeshToonMaterial({
+          color: hex, gradientMap: GRADIENT, side: THREE.FrontSide,
+        });
+        if (mat.map) toon.map = mat.map;
+        return toon;
+      });
+      obj.material = isArray ? out : out[0];
+    });
+  }
+  function addOutlines(model, thickness) {
+    var meshes = [];
+    model.traverse(function (o) {
+      if ((o.isMesh || o.isSkinnedMesh) && !o.userData.__isOutline) meshes.push(o);
+    });
+    for (var i = 0; i < meshes.length; i++) {
+      var mesh = meshes[i];
+      if (!mesh.parent) continue;
+      var ws = new THREE.Vector3();
+      mesh.getWorldScale(ws);
+      var avg = (Math.abs(ws.x) + Math.abs(ws.y) + Math.abs(ws.z)) / 3 || 1;
+      var outline = mesh.clone(false);
+      outline.material = createOutlineMaterial(thickness / avg);
+      outline.name = (mesh.name || 'mesh') + '_outline';
+      outline.castShadow = false;
+      outline.receiveShadow = false;
+      outline.frustumCulled = false;
+      outline.userData.__isOutline = true;
+      mesh.parent.add(outline);
+    }
+  }
+  function computeBounds(root) {
+    root.updateMatrixWorld(true);
+    var box = new THREE.Box3().setFromObject(root);
+    if (box.isEmpty() ||
+        ![box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z].every(isFinite)) {
+      box.makeEmpty();
+      root.traverse(function (obj) {
+        if (obj.isMesh && obj.geometry) {
+          if (!obj.geometry.boundingBox) obj.geometry.computeBoundingBox();
+          if (obj.geometry.boundingBox) {
+            box.union(obj.geometry.boundingBox.clone().applyMatrix4(obj.matrixWorld));
+          }
+        }
+      });
+    }
+    return box;
+  }
+  function normalizeModel(model, targetHeight) {
+    model.position.set(0, 0, 0);
+    model.rotation.set(0, 0, 0);
+    model.scale.set(1, 1, 1);
+    model.updateMatrixWorld(true);
+    var rawSize = computeBounds(model).getSize(new THREE.Vector3());
+    var scale = 0.01;
+    if (isFinite(rawSize.y) && rawSize.y > 1e-6) {
+      scale = THREE.MathUtils.clamp(targetHeight / rawSize.y, 1e-6, 1e6);
+    }
+    model.scale.setScalar(scale);
+    model.updateMatrixWorld(true);
+    var box = computeBounds(model);
+    var center = box.getCenter(new THREE.Vector3());
+    model.position.set(-center.x, -box.min.y, -center.z);
+    model.updateMatrixWorld(true);
+    return Math.max(computeBounds(model).getSize(new THREE.Vector3()).y, 0.0001);
+  }
+
+  /* ---- Load run.fbx in parallel with the preload ------------------- */
+  var fbx;
+  try {
+    fbx = await new Promise(function (resolve, reject) {
+      new FBXLoader().load(
+        './character/run.fbx',
+        resolve,
+        undefined,
+        function (err) { reject(err || new Error('run.fbx failed')); }
+      );
+    });
+  } catch (err) {
+    console.warn('Loading scene: could not load run.fbx.', err);
+    return;
+  }
+
+  /* If boot() already finished by now, no point building the scene. */
+  if (!screen || screen.style.display === 'none') return;
+
+  var runClip = (fbx.animations && fbx.animations.length > 0) ? fbx.animations[0] : null;
+
+  var PLAYER_COLORS = {
+    hair: 0x2b1d16, body: 0xe8b48c, shirt: 0x3a7bd5,
+    shorts: 0x2f3542, slippers: 0xd94f4f,
+  };
+  var BOT_COLORS = {
+    hair: 0x1a1410, body: 0xe8b48c, shirt: 0x27ae60,
+    shorts: 0x6a4c93, slippers: 0xf39c12,
+  };
+
+  function makeActor(colors) {
+    var model = skeletonClone ? skeletonClone(fbx) : fbx.clone(true);
+    applyColors(model, colors);
+    var h = normalizeModel(model, 1.8);
+    addOutlines(model, 0.012);
+    var pivot = new THREE.Group();
+    pivot.add(model);
+    scene.add(pivot);
+    return { pivot: pivot, model: model, height: h };
+  }
+
+  /* ---- Loading-scene reach IK (bot catches the player) ------------- */
+  function normalizeBoneName(name) {
+    return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
+  function handSide(n) {
+    if (/left/.test(n))  return 'left';
+    if (/right/.test(n)) return 'right';
+    if (/handl$/.test(n) || /lhand$/.test(n)) return 'left';
+    if (/handr$/.test(n) || /rhand$/.test(n)) return 'right';
+    return 'unknown';
+  }
+  function findHandBone(root) {
+    var bones = [];
+    root.traverse(function (o) { if (o.isBone) bones.push(o); });
+    var tiers = [
+      ['righthand', 'handright', 'wrighthand', 'rhand', 'handr',
+       'bip01rhand', 'biprhand', 'handr02', 'handr2'],
+      ['hand', 'hand02', 'hand2']
+    ];
+    var NOT_A_HAND_RE = /thumb|index|middle|ring|pinky|finger|forearm|lowerarm|upperarm|shoulder|clavicle/i;
+    var best = null, bestScore = -Infinity;
+    for (var b = 0; b < bones.length; b++) {
+      var bone = bones[b];
+      var n = normalizeBoneName(bone.name);
+      var score = 0;
+      for (var t = 0; t < tiers.length; t++) {
+        for (var i = 0; i < tiers[t].length; i++) {
+          if (n.indexOf(tiers[t][i]) >= 0) {
+            score = Math.max(score, (tiers.length - t) * 100 + (tiers[t].length - i) * 10);
+            break;
+          }
+        }
+      }
+      if (score <= 0) continue;
+      var side = handSide(n);
+      if (side === 'right') score += 1000;
+      if (side === 'left')  score -= 1000;
+      if (NOT_A_HAND_RE.test(n)) score -= 300;
+      if (score > bestScore) { bestScore = score; best = bone; }
+    }
+    return best;
+  }
+  function buildArmChain(handBone) {
+    var chain = [];
+    var b = handBone.parent;
+    var stop = /(spine|chest|hips|hip|root|neck|head|pelvis|clavicle|shoulder)/;
+    while (b && b.isBone && chain.length < 3) {
+      var n = normalizeBoneName(b.name);
+      if (stop.test(n)) break;
+      chain.push(b);
+      b = b.parent;
+    }
+    return chain;
+  }
+  function createReachIK(effector, bones) {
+    var iterations = 8;
+    var maxStep = 0.3;
+    var _identity = new THREE.Quaternion();
+    var _e = new THREE.Vector3(), _p = new THREE.Vector3();
+    var _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3();
+    var _goal = new THREE.Vector3(), _q = new THREE.Quaternion();
+    var _pq = new THREE.Quaternion(), _ipq = new THREE.Quaternion();
+    var _delta = new THREE.Quaternion();
+    var ik = {
+      effector: effector,
+      bones: bones,
+      weight: 0,
+      target: new THREE.Vector3(),
+      update: function () {
+        if (this.weight <= 0.001 || this.bones.length === 0) return;
+        this.effector.getWorldPosition(_e);
+        _goal.copy(_e).lerp(this.target, this.weight);
+        for (var it = 0; it < iterations; it++) {
+          for (var i = 0; i < this.bones.length; i++) {
+            var bone = this.bones[i];
+            if (!bone.parent) continue;
+            bone.getWorldPosition(_p);
+            this.effector.getWorldPosition(_e);
+            _v1.subVectors(_e, _p);
+            _v2.subVectors(_goal, _p);
+            if (_v1.lengthSq() < 1e-10 || _v2.lengthSq() < 1e-10) continue;
+            _v1.normalize();
+            _v2.normalize();
+            _q.setFromUnitVectors(_v1, _v2);
+            var angle = 2 * Math.acos(THREE.MathUtils.clamp(Math.abs(_q.w), -1, 1));
+            if (angle > maxStep && angle > 1e-5) _q.slerp(_identity, 1 - maxStep / angle);
+            bone.parent.getWorldQuaternion(_pq);
+            _ipq.copy(_pq).invert();
+            _delta.copy(_ipq).multiply(_q).multiply(_pq);
+            bone.quaternion.premultiply(_delta);
+            bone.quaternion.normalize();
+          }
+        }
+      }
+    };
+    return ik;
+  }
+
+  var player = makeActor(PLAYER_COLORS);
+  var bot    = makeActor(BOT_COLORS);
+
+  var botReach = null;
+  var botHandBone = findHandBone(bot.model);
+  if (botHandBone) {
+    var botArmChain = buildArmChain(botHandBone);
+    if (botArmChain.length > 0) {
+      botReach = createReachIK(botHandBone, botArmChain);
+      console.log('LOADING SCENE: bot reach rigged on ' + botArmChain.length + ' bone(s).');
+    }
+  }
+
+  var playerMixer = null, botMixer = null;
+  if (runClip) {
+    playerMixer = new THREE.AnimationMixer(player.model);
+    botMixer    = new THREE.AnimationMixer(bot.model);
+    playerMixer.clipAction(runClip).play();
+    /* The bot runs a hair faster so its cycle is visibly ahead — makes
+       the chase read as "catching up" rather than two clones mirroring. */
+    var botAction = botMixer.clipAction(runClip);
+    botAction.setEffectiveTimeScale(1.15);
+    botAction.play();
+  }
+
+  /* ---- Fixed bird-view camera (matches CONFIG.birdView) ----------- */
+  var BIRD_PITCH = 0.80;
+  var charHeight = player.height;
+  var birdDistance = charHeight * 5.0;
+
+  var runSpeed = 5.0;
+  /* Start the chase symmetric around the world origin so the initial
+     camera view is perfectly centred between the two characters.
+     Bring them closer together (distance 1.2 < reachDistance 2.4)
+     so the visual reads as the bot reaching out to catch the player. */
+  var playerX = -0.6;
+  var botX = 0.6;
+
+  function layout() {
+    var w = window.innerWidth;
+    var h = window.innerHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  layout();
+  window.addEventListener('resize', layout);
+  window.addEventListener('orientationchange', function () {
+    setTimeout(layout, 60);
+    setTimeout(layout, 350);
+  });
+
+  var clock = new THREE.Clock();
+  var mid = new THREE.Vector3(0, 0, 0);
+  var _reachTarget = new THREE.Vector3();
+  var stopped = false;
+
+  function frame() {
+    if (stopped) return;
+    requestAnimationFrame(frame);
+    if (!screen || screen.style.display === 'none' || screen.style.opacity === '0') {
+      stopped = true;
+      return;
+    }
+
+    var dt = Math.min(clock.getDelta(), 0.05);
+
+    /* Characters run IN PLACE at fixed, centred positions. The run
+       animation still plays (mixer.update below), but the models
+       stay put so the chase reads as an endless sprint on a
+       treadmill while the loading bar fills. */
+    var px = playerX;
+    var pz = 0;
+    var bx = botX;
+    var bz = 0;
+
+    player.pivot.position.set(px, 0, pz);
+    bot.pivot.position.set(bx, 0, bz);
+
+    /* Both face the SAME direction (-X world, which appears as RIGHT on
+       screen in the bird-view camera). The bot is on the LEFT of the
+       screen, the player is on the RIGHT, and the bot reaches forward
+       to catch the player. */
+    player.pivot.rotation.y = -Math.PI / 2;
+    bot.pivot.rotation.y = -Math.PI / 2;
+
+    if (playerMixer) playerMixer.update(dt);
+    if (botMixer)    botMixer.update(dt);
+
+    player.pivot.updateMatrixWorld(true);
+    bot.pivot.updateMatrixWorld(true);
+
+    /* Bot's catching hand reaches for the player's chest, like the NPC's
+       procedural hand-reach while chasing. */
+    if (botReach) {
+      _reachTarget.set(0, player.height * 0.62, 0);
+      player.pivot.localToWorld(_reachTarget);
+      botReach.target.copy(_reachTarget);
+      botReach.weight += (1 - botReach.weight) * (1 - Math.exp(-6 * dt));
+      botReach.update();
+      bot.pivot.updateMatrixWorld(true);
+    }
+
+    /* Fixed overhead camera, softly following the chase midpoint. */
+    var tmx = (px + bx) * 0.5;
+    var tmz = (pz + bz) * 0.5;
+    mid.x += (tmx - mid.x) * (1 - Math.exp(-6 * dt));
+    mid.z += (tmz - mid.z) * (1 - Math.exp(-6 * dt));
+
+    var lookY = charHeight * 0.62;
+    var cosP = Math.cos(BIRD_PITCH);
+    var sinP = Math.sin(BIRD_PITCH);
+    camera.position.set(
+      mid.x,
+      lookY + birdDistance * sinP,
+      mid.z - birdDistance * cosP
+    );
+    camera.lookAt(mid.x, lookY, mid.z);
+
+    sun.position.set(mid.x + 8, 15, mid.z + 5);
+    sun.target.position.set(mid.x, 0, mid.z);
+    sun.target.updateMatrixWorld();
+
+    renderer.render(scene, camera);
+  }
+
+  requestAnimationFrame(frame);
+}
+
+/* Kick off the loading scene. Runs in the background: the loading
+   panel and its progress bar above it update regardless. */
+initLoadingScene();
+
+/* =====================================================================
+   MAIN MENU + LOADING SCREEN
+   ---------------------------------------------------------------------
+   1. The loading screen downloads every FBX the game needs (the list is
+      shared with game.html through script/common.js). The browser keeps
+      them in its HTTP cache, so game.html starts much faster.
+   2. When everything is ready the main menu fades in.
+   3. PLAY opens game.html. Inside the game, the gear menu has a
+      MAIN MENU button that comes back here.
+   ===================================================================== */
+const GAME_URL = 'game.html';
+
+/* The game cannot start without these. pickUp / back / slipper are
+   optional: game.html falls back gracefully when they are missing. */
+const REQUIRED_ASSETS = ['idle', 'run', 'jump'];
+
+/* Keep the loading screen up at least this long so cached loads do not
+   flash it for a single frame. */
+const MIN_LOADING_MS = 5000;
+
+const loadingScreen  = document.getElementById('loading-screen');
+const loadingBarFill = document.getElementById('loading-bar-fill');
+const loadingErrorEl = document.getElementById('loading-error');
+const retryBtn       = document.getElementById('retry-btn');
+const loadingPercent = document.getElementById('loading-percent');
+
+/* ---- Smooth, appealing loading bar ---------------------------------
+   The bar has two values:
+     loadTarget - the REAL progress (0-100). Set by setLoadTarget().
+     loadShown  - the VISIBLE width (0-100), eased toward the target.
+   loadShown can never jump: it moves at most ~30%/s toward the target,
+   so even a fully cached load (assets arrive in the same frame) plays
+   as a smooth 0 -> 70% sweep instead of an instant jump to 80%.
+   The final 85 -> 100 stretch is driven by setLoadSchedule() over the
+   remaining MIN_LOADING_MS budget, so it always fills evenly. */
+let loadTarget = 0;
+let loadShown = 0;
+let loadSchedule = null;
+let loadRafId = 0;
+
+function loadPaint() {
+  loadingBarFill.style.width = loadShown.toFixed(1) + '%';
+  if (loadingPercent) loadingPercent.textContent = Math.round(loadShown) + '%';
+}
+
+function loadStartLoop() {
+  if (loadRafId) return;
+  loadRafId = requestAnimationFrame(loadTick);
+}
+
+function loadTick(now) {
+  loadRafId = 0;
+
+  if (loadSchedule) {
+    const t = Math.min(1, (now - loadSchedule.start) / loadSchedule.duration);
+    loadTarget = loadSchedule.from + (loadSchedule.to - loadSchedule.from) * t;
+    if (t >= 1) loadSchedule = null;
+  }
+
+  const diff = loadTarget - loadShown;
+  if (diff > 0.01) {
+    /* Max ~30%/s at 60fps (0.5 per frame). Slower easing as we get
+       close keeps the sweep smooth and never over-shoots the target. */
+    const maxStep = 0.5;
+    const step = Math.min(maxStep, Math.max(0.12, diff * 0.06));
+    loadShown = Math.min(loadTarget, loadShown + step);
+    loadPaint();
+  } else if (diff < -0.01) {
+    loadShown = loadTarget;
+    loadPaint();
+  }
+
+  if (Math.abs(loadTarget - loadShown) > 0.05 || loadSchedule) {
+    loadRafId = requestAnimationFrame(loadTick);
+  }
+}
+
+function setLoadTarget(pct) {
+  loadSchedule = null;
+  loadTarget = Math.max(loadTarget, Math.min(100, pct));
+  loadStartLoop();
+}
+
+function setLoadSchedule(toPct, durationMs) {
+  const to = Math.min(100, toPct);
+  loadSchedule = {
+    from: loadShown,
+    to,
+    start: performance.now(),
+    duration: Math.max(1, durationMs),
+  };
+  loadTarget = to;
+  loadStartLoop();
+}
+
+function loadReset() {
+  if (loadRafId) { cancelAnimationFrame(loadRafId); loadRafId = 0; }
+  loadSchedule = null;
+  loadTarget = 0;
+  loadShown = 0;
+  loadPaint();
+}
+const mainMenu       = document.getElementById('main-menu');
+const playBtn        = document.getElementById('btn-play');
+const settingsBtn    = document.getElementById('btn-settings');
+const backBtn        = document.getElementById('btn-back');
+const botBtn         = document.getElementById('btn-bot');
+/* ---- Gear icon for the round SETTINGS button (top-right) --------------
+   Same generated gear as the in-game menu (script/settings.js). */
+function gearPath(cx, cy, teeth, rOuter, rInner, holeR) {
+  const step = (Math.PI * 2) / teeth;
+  const shape = [[-0.30, rInner], [-0.17, rOuter], [0.17, rOuter], [0.30, rInner]];
+  const pts = [];
+  for (let i = 0; i < teeth; i++) {
+    const a = i * step - Math.PI / 2;
+    for (const [off, r] of shape) {
+      const ang = a + off * step;
+      pts.push(
+        (cx + Math.cos(ang) * r).toFixed(2) + ' ' +
+        (cy + Math.sin(ang) * r).toFixed(2)
+      );
+    }
+  }
+  const hole =
+    'M ' + (cx - holeR) + ' ' + cy +
+    ' a ' + holeR + ' ' + holeR + ' 0 1 0 ' + (holeR * 2) + ' 0' +
+    ' a ' + holeR + ' ' + holeR + ' 0 1 0 ' + (-holeR * 2) + ' 0 Z';
+  return 'M ' + pts.join(' L ') + ' Z ' + hole;
+}
+settingsBtn.innerHTML =
+  '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+  '<path d="' + gearPath(16, 16, 8, 13, 9.6, 4) + '" ' +
+  'fill="#fff3c4" fill-rule="evenodd" stroke="#000" stroke-width="2.2" stroke-linejoin="round"/>' +
+  '</svg>';
+
+/* Same automatic fullscreen + landscape lock the game uses. */
+setupMobileFullscreen();
+
+/* ---------------------------------------------------------------------
+   TOUCH THE SCREEN -> FULLSCREEN + LANDSCAPE LOCK
+   ---------------------------------------------------------------------
+   The moment the player touches (or clicks) anywhere on this page the
+   page goes fullscreen and locks to landscape. Browsers require a user
+   gesture for both APIs, so this is the earliest legal moment.
+
+   The listeners are passive + capture-phase, so they never block or
+   change the behaviour of the menu / retry buttons, and they keep
+   retrying on later touches until the browser actually grants
+   fullscreen.
+   ------------------------------------------------------------------- */
+let touchFullscreenDone = false;
+
+function isFullscreenNow() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+async function enterFullscreenOnTouch() {
+  if (!isMobileDevice || touchFullscreenDone) return;
+
+  /* The shared helper (script/common.js) does fullscreen + landscape lock. */
+  if (!isFullscreenNow()) await requestFullscreenLandscape();
+
+  if (isFullscreenNow()) touchFullscreenDone = true;
+}
+
+/* Only events the browser counts as a "user gesture" for fullscreen:
+   touchend / pointerup / click. touchstart and (touch) pointerdown do NOT
+   count, so asking for fullscreen from them is silently refused. */
+['touchend', 'pointerup', 'click'].forEach((evt) => {
+  window.addEventListener(evt, enterFullscreenOnTouch, { passive: true, capture: true });
+});
+
+/* Leaving fullscreen (Esc / system gesture) re-arms the touch handler. */
+document.addEventListener('fullscreenchange', () => {
+  if (!isFullscreenNow()) touchFullscreenDone = false;
+});
+
+/* START GATE: the page shows ONLY the "Rotate your device" screen (icon + text,
+   no buttons) until it is fullscreen + landscape. Touching the screen does both
+   automatically. Loading and the main menu start (boot) only after that. */
+setupStartGate(boot);
+
+/* ---- Preloading ----------------------------------------------------- */
+async function fetchAsset(url, onProgress) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+  const total = Number(res.headers.get('Content-Length')) || 0;
+  if (!res.body || !total) {
+    await res.arrayBuffer();
+    onProgress(1);
+    return;
+  }
+
+  const reader = res.body.getReader();
+  let loaded = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    loaded += value.length;
+    onProgress(Math.min(1, loaded / total));
+  }
+  onProgress(1);
+}
+
+/* Resolves to the list of assets that failed to download. */
+async function preloadAssets() {
+  const keys = Object.keys(CHARACTER_PATHS);
+  const progress = {};
+  for (const k of keys) progress[k] = 0;
+
+  const paint = () => {
+    let sum = 0;
+    for (const k of keys) sum += progress[k];
+    /* Cap at 70% so the remaining boot phases smoothly fill the rest.
+       setLoadTarget() lets the visible bar EASE toward this value, so
+       even a fully cached load plays as a smooth sweep. */
+    setLoadTarget((sum / keys.length) * 70);
+  };
+
+  const results = await Promise.all(keys.map(async (key) => {
+    try {
+      await fetchAsset(CHARACTER_PATHS[key], (p) => { progress[key] = p; paint(); });
+      return null;
+    } catch (err) {
+      progress[key] = 1;
+      paint();
+      return { key, path: CHARACTER_PATHS[key], err };
+    }
+  }));
+
+  return results.filter(Boolean);
+}
+
+/* ---- 3D lobby character ---------------------------------------------
+   script/lobby.js draws the idle character behind the menu. It is loaded
+   with a dynamic import so a missing WebGL / FBX never blocks the menu:
+   on any failure the flat sky + grass backdrop is used instead. */
+async function startLobbyScene() {
+  try {
+    const lobby = await import('./script/lobby.js');
+    await Promise.race([
+      lobby.startLobby(),
+      new Promise((resolve) => setTimeout(resolve, 8000)),
+    ]);
+  } catch (err) {
+    console.warn('3D lobby unavailable, using the flat backdrop:', err);
+  }
+}
+async function boot() {
+  /* Start the lobby music RIGHT NOW, MUTED, while the user gesture
+     that triggered boot() is still "active" in the browser.
+
+     On MOBILE, boot() is called from the start gate's tap handler
+     (setupStartGate). The browser's user-activation window is short
+     (~5 s), so calling play() 5+ seconds later from showMenu() (after
+     preloading) misses that window and play() gets blocked. Playing
+     it here — synchronously inside the gesture, at volume 0 — makes
+     play() succeed reliably. The volume is then faded up in
+     showMenu(), so the LOADING SCREEN itself is completely silent. */
+  startLobbyMusicMuted();
+
+  const startedAt = performance.now();
+  retryBtn.hidden = true;
+  loadingErrorEl.textContent = '';
+  loadReset();
+
+  const failed = await preloadAssets();
+  for (const f of failed) console.warn(`Preload failed for ${f.path}:`, f.err);
+
+  const missing = failed.filter((f) => REQUIRED_ASSETS.includes(f.key));
+  if (missing.length > 0) {
+    loadingErrorEl.textContent =
+      'Could not load character files:\n' +
+      missing.map((f) => f.path).join('\n') + '\n\n' +
+      'Make sure they exist inside a "character" folder next to this index.html, ' +
+      'and that you are running this over a local server.';
+    retryBtn.hidden = false;
+    return;
+  }
+
+  /* Phase 2: Build the lobby character. The bar eases toward 75 / 85
+     instead of jumping there - the smooth controller caps its speed. */
+  setLoadTarget(75);
+  await startLobbyScene();
+  setLoadTarget(85);
+
+  /* Phase 3: fill 85 -> 100 over whatever remains of MIN_LOADING_MS.
+     setLoadSchedule() drives the bar at a steady, time-based pace so
+     it never jumps - even a fully cached boot plays as an appealing
+     slow fill instead of snapping straight to the end. */
+  const remaining = Math.max(0, MIN_LOADING_MS - (performance.now() - startedAt));
+  if (remaining > 100) {
+    setLoadSchedule(100, remaining);
+  } else {
+    setLoadTarget(100);
+  }
+
+  /* Wait until the visible bar has really reached the end (the easing
+     loop can lag a frame or two behind the target). */
+  await new Promise((resolve) => {
+    const check = () => {
+      if (loadShown >= 99.5) resolve();
+      else requestAnimationFrame(check);
+    };
+    check();
+  });
+
+  showMenu();
+}
+
+/* ---- Lobby background music (sound/lobby.mp3) -----------------------
+   Slow start: playback begins at volume 0 and fades up to the target
+   volume over ~4 s, so the lobby music eases in with the character
+   instead of bursting in. Paused while the game iframe is open and
+   faded back in when the player returns to the menu. */
+const LOBBY_MUSIC_TARGET = 0.45;
+const LOBBY_MUSIC_FADE_MS = 4000;
+let _lobbyMusic = null;
+let _lobbyFadeRaf = 0;
+
+function ensureLobbyMusic() {
+  if (!_lobbyMusic) {
+    try {
+      _lobbyMusic = new Audio('./sound/lobby.mp3');
+      _lobbyMusic.loop = true;
+      _lobbyMusic.preload = 'auto';
+      _lobbyMusic.volume = 0;
+    } catch (err) {
+      _lobbyMusic = null;
+    }
+  }
+  return _lobbyMusic;
+}
+
+/* One-shot "next user gesture" retry for lobby music. When the browser
+   blocks play() because the call did not come from a user gesture
+   (the classic case: the game iframe's MAIN MENU button posts a
+   message, and the message handler runs OUTSIDE any user gesture),
+   this listener will start the music on the very next tap / click /
+   key on the LOBBY page. */
+let _lobbyRetryArmed = false;
+function installLobbyMusicGestureRetry() {
+  if (_lobbyRetryArmed) return;
+  _lobbyRetryArmed = true;
+  function retry() {
+    _lobbyRetryArmed = false;
+    window.removeEventListener('pointerdown', retry, true);
+    window.removeEventListener('touchstart', retry, true);
+    window.removeEventListener('keydown', retry, true);
+    /* Do nothing if the game iframe is present (music should stay
+       paused while playing). */
+    if (document.getElementById('game-frame')) return;
+    /* Same autoplay rule may still apply on old browsers; the call is
+       safe either way. */
+    startLobbyMusic();
+  }
+  window.addEventListener('pointerdown', retry, true);
+  window.addEventListener('touchstart', retry, true);
+  window.addEventListener('keydown', retry, true);
+}
+
+/* Starts the lobby music at SILENCE while keeping the play() call
+   inside the user gesture that triggered boot(). This is what makes
+   the music reliably play on the FIRST load on mobile: the browser
+   only grants play() during the user's tap, and by the time the menu
+   fades in (5+ seconds later) that gesture window has expired. So we
+   play() NOW, muted, and only fade the volume up when the menu is
+   actually shown (see fadeInLobbyMusic below). */
+function startLobbyMusicMuted() {
+  const a = ensureLobbyMusic();
+  if (!a) return;
+  if (_lobbyFadeRaf) {
+    cancelAnimationFrame(_lobbyFadeRaf);
+    _lobbyFadeRaf = 0;
+  }
+  /* Always begin silent. The fade-in happens later. */
+  a.volume = 0;
+  a.muted = true;
+
+  const p = a.play();
+  if (p && typeof p.then === 'function') {
+    p.then(() => {
+      /* play() succeeded: leave the element running silently. The
+         fade-in will un-mute it. */
+    }).catch(() => {
+      /* Blocked even inside the gesture (desktop autoplay policy):
+         arm the one-shot user-gesture retry. */
+      installLobbyMusicGestureRetry();
+    });
+  }
+}
+
+/* Fades the already-playing lobby music from silence up to the target
+   volume. Called from showMenu() when the main menu appears — NOT
+   during loading — so the music only becomes audible once the lobby
+   is on screen. If the music is not playing (e.g. play() was blocked
+   earlier), this simply calls startLobbyMusic() which will try again
+   and fade in on success. */
+function fadeInLobbyMusic() {
+  const a = ensureLobbyMusic();
+  if (!a) return;
+
+  /* If the element is paused, start it now (still inside the menu
+     fade's user-visible transition, which is close enough for most
+     browsers; the gesture-retry handles the strict ones). */
+  if (a.paused) {
+    const p = a.play();
+    if (p && typeof p.then === 'function') {
+      p.then(() => fadeInLobbyMusic()).catch(() => {
+        installLobbyMusicGestureRetry();
+      });
+      return;
+    }
+    a.play();
+  }
+
+  if (_lobbyFadeRaf) {
+    cancelAnimationFrame(_lobbyFadeRaf);
+    _lobbyFadeRaf = 0;
+  }
+  a.muted = false;
+  a.volume = 0;
+  const start = performance.now();
+  function tick(now) {
+    const music = _lobbyMusic;
+    if (!music) { _lobbyFadeRaf = 0; return; }
+    const t = Math.min(1, (now - start) / LOBBY_MUSIC_FADE_MS);
+    music.volume = LOBBY_MUSIC_TARGET * t;
+    if (t < 1) {
+      _lobbyFadeRaf = requestAnimationFrame(tick);
+    } else {
+      _lobbyFadeRaf = 0;
+    }
+  }
+  _lobbyFadeRaf = requestAnimationFrame(tick);
+}
+
+/* Convenience wrapper used when RETURNING from the game iframe to the
+   lobby: the music element already exists and was paused, so we can
+   call fadeInLobbyMusic() directly. */
+function startLobbyMusic() {
+  fadeInLobbyMusic();
+}
+
+function pauseLobbyMusic() {
+  if (_lobbyFadeRaf) {
+    cancelAnimationFrame(_lobbyFadeRaf);
+    _lobbyFadeRaf = 0;
+  }
+  if (!_lobbyMusic) return;
+  try { _lobbyMusic.pause(); } catch (err) { /* ignore */ }
+}
+
+/* Belt and braces: also arm a gesture retry the FIRST time the page
+   is interacted with. This covers the case where the very first
+   startLobbyMusic() call (from showMenu) was blocked by the browser's
+   autoplay policy on a desktop that never needed a user gesture to
+   open the menu. The handler removes itself after one successful
+   attempt. */
+(function armInitialLobbyMusicRetry() {
+  const tryStart = () => {
+    if (document.getElementById('game-frame')) return;
+    const a = _lobbyMusic;
+    if (!a || !a.paused) return;
+    startLobbyMusic();
+  };
+  window.addEventListener('pointerdown', tryStart, { capture: true, passive: true });
+  window.addEventListener('touchstart', tryStart, { capture: true, passive: true });
+  window.addEventListener('keydown', tryStart, { capture: true, passive: true });
+})();
+
+/* ---- Menu ----------------------------------------------------------- */
+function showMenu() {
+  const transition = document.getElementById('black-transition');
+
+  /* Fade the whole screen to black… */
+  if (transition) transition.classList.add('active');
+
+  setTimeout(() => {
+    /* …swap the screens behind the black… */
+    loadingScreen.style.opacity = '0';
+    loadingScreen.style.pointerEvents = 'none';
+    loadingScreen.style.display = 'none';
+
+    mainMenu.classList.add('ready');
+    mainMenu.setAttribute('aria-hidden', 'false');
+
+    /* NOW the lobby is visible: fade the music in from silence. The
+       element has been quietly playing since boot() (so the gesture
+       requirement was satisfied); we just unmute and ramp up. The
+       loading screen was completely silent. */
+    fadeInLobbyMusic();
+
+    /* …then fade back in from black. */
+    setTimeout(() => {
+      if (transition) transition.classList.remove('active');
+    }, 120);
+  }, 500);
+}
+
+function setView(view) {
+  mainMenu.setAttribute('data-view', view);
+}
+
+let leaving = false;
+function play(withBot) {
+  if (leaving) return;
+  leaving = true;
+  /* Persist the bot choice so game.html spawns (or skips) the NPC
+     companion on load. PLAY passes false, PLAY WITH BOT passes true. */
+  writeBotPreference(!!withBot);
+
+  /* FULLSCREEN + LANDSCAPE, RIGHT NOW. The browser only grants fullscreen
+     inside a user gesture, and this tap / click / Enter on PLAY is one.
+     Doing it here (not after the fade below) means the game opens already
+     fullscreen and landscape-locked, so the play gate in game.html does
+     not have to ask for a second tap. */
+  requestFullscreenLandscape();
+  /* Silence the lobby music while the game iframe is open. */
+  pauseLobbyMusic();
+  document.body.classList.add('leaving');
+
+  /* Load the game INSIDE this page as a full-screen iframe overlay instead
+     of navigating to game.html. Fullscreen and the landscape lock are owned
+     by THIS page, so they survive the menu -> game switch. A real page
+     navigation would force the browser to exit fullscreen and release the
+     orientation lock, which is exactly what made the screen flash back to
+     portrait. */
+  setTimeout(() => {
+    const frame = document.createElement('iframe');
+    frame.id = 'game-frame';
+    frame.src = GAME_URL;
+    frame.setAttribute(
+      'allow',
+      'fullscreen; accelerometer; gyroscope; gamepad; pointer-lock'
+    );
+    frame.style.cssText =
+      'position:fixed;inset:0;width:100%;height:100%;border:0;' +
+      'background:#1a1a1a;z-index:5000;';
+    document.body.appendChild(frame);
+
+    /* The in-game MAIN MENU button posts this message; see onGameMessage. */
+    window.addEventListener('message', onGameMessage);
+
+    /* When the app loses fullscreen, notify the iframe so it can
+       automatically open the Settings menu on the next touch. */
+    window.addEventListener('toon:lost-fullscreen', () => {
+      if (frame.contentWindow) {
+        frame.contentWindow.postMessage({ type: 'toon:lost-fullscreen' }, '*');
+      }
+    });
+  }, 180);
+}
+
+/* Called when the in-game MAIN MENU button fires its message. */
+function onGameMessage(e) {
+  if (!e || !e.data) return;
+  if (e.data.type === 'toon:return-to-menu') {
+    closeGameFrame();
+  } else if (e.data.type === 'toon:request-fullscreen') {
+    /* The game's play gate was tapped: enter fullscreen + landscape here,
+       in the top-level page (works on desktop and mobile). */
+    requestFullscreenLandscape();
+  }
+}
+
+/* Drop the iframe overlay. The parent page never left fullscreen / landscape,
+   so this is all that is needed to return to the menu with no flicker. */
+function closeGameFrame() {
+  const frame = document.getElementById('game-frame');
+  if (frame) frame.remove();
+  window.removeEventListener('message', onGameMessage);
+  leaving = false;
+  document.body.classList.remove('leaving');
+  setView('menu');
+  /* Back in the lobby: fade the music back in. */
+  startLobbyMusic();
+}
+
+/* Coming back with the browser Back button restores this page from the
+   bfcache with the "leaving" state still set; undo it. */
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) {
+    leaving = false;
+    document.body.classList.remove('leaving');
+  }
+});
+
+playBtn.addEventListener('click', () => play(false));
+settingsBtn.addEventListener('click', () => setView('settings'));
+backBtn.addEventListener('click', () => setView('menu'));
+
+/* ---- PLAY WITH BOT -------------------------------------------------
+   Both PLAY and PLAY WITH BOT enter the same game. The only difference
+   is the persisted 'toon-bot-enabled' flag, which game.html reads on
+   load to decide whether to spawn the NPC companion. */
+const BOT_STORAGE_KEY = 'toon-bot-enabled';
+
+function writeBotPreference(on) {
+  try { localStorage.setItem(BOT_STORAGE_KEY, on ? '1' : '0'); }
+  catch (err) { /* ignore */ }
+}
+
+botBtn.addEventListener('click', (e) => {
+  e.preventDefault();
+  botBtn.blur();
+  play(true);
+});
+
+retryBtn.addEventListener('click', boot);
+
+window.addEventListener('keydown', (e) => {
+  if (!mainMenu.classList.contains('ready')) return;
+  const view = mainMenu.getAttribute('data-view');
+
+  if (e.code === 'Escape' && view === 'settings') {
+    setView('menu');
+    return;
+  }
+  /* Enter on a focused button already clicks it; only handle Enter when
+     no button has focus, otherwise it would also start the game. */
+  if ((e.code === 'Enter' || e.code === 'NumpadEnter') && view === 'menu' &&
+      !(e.target instanceof Element && e.target.closest('button'))) {
+    play();
+  }
+});
+
+/* boot() is started by the start gate above: setupStartGate(boot). */
+</script>
+
+</body>
+</html>

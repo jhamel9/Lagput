@@ -1,0 +1,55 @@
+/* =====================================================================
+   SHARED STYLES  (style/common.css)
+   ---------------------------------------------------------------------
+   Used by BOTH pages so nothing is defined twice:
+     index.html   main menu + loading screen
+     game.html    the 3D game
+   Contains: base page rules, the loading screen and the rotate-device
+   overlay. Page-specific styles stay inside each page.
+   ===================================================================== */
+html, body {
+  margin: 0; padding: 0; overflow: hidden;
+  width: 100%; height: 100%;
+  background: #87ceeb;
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-user-select: none; user-select: none; touch-action: none;
+}
+
+/* ---------- Loading screen ---------- */
+#loading-screen {
+  position: fixed; inset: 0; background: #1a1a1a; color: #eee;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 100; transition: opacity 0.4s ease;
+}
+#loading-screen h2 { margin: 0 0 10px; font-size: 20px; }
+#loading-screen p { margin: 4px 0; font-size: 13px; color: #aaa; max-width: 480px; text-align: center; line-height: 1.4; }
+#loading-bar-track { width: 260px; height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-top: 14px; }
+#loading-bar-fill { height: 100%; width: 0%; background: #4caf50; transition: width 0.15s ease; }
+#loading-error { color: #ff6b6b; font-size: 13px; margin-top: 14px; max-width: 500px; text-align: center; white-space: pre-line; }
+
+/* ---------- "Rotate your device" overlay (portrait touch devices) ---------- */
+#rotate-overlay {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 300;
+  background: #10141a; color: #fff;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 16px; text-align: center; padding: 24px;
+  font-size: 15px; letter-spacing: 0.02em;
+}
+#rotate-overlay .icon { font-size: 48px; line-height: 1; animation: rotateHint 2.2s ease-in-out infinite; }
+@keyframes rotateHint {
+  0%, 35%   { transform: rotate(0deg); }
+  65%, 100% { transform: rotate(90deg); }
+}
+/* Shown ONCE per session by setupRotateGate() in script/common.js: it adds
+   .show while the phone is in portrait, then .closing as it fades out.
+   It is no longer driven by a media query, so it cannot keep reappearing. */
+#rotate-overlay {
+  transition: opacity 0.3s ease;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#rotate-overlay.show { display: flex; }
+#rotate-overlay.closing { opacity: 0; pointer-events: none; }
+#rotate-overlay .title { font-size: 20px; font-weight: 800; letter-spacing: 0.02em; }
+#rotate-overlay .text { max-width: 380px; font-size: 14px; line-height: 1.45; color: #d8e1ea; }
